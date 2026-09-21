@@ -158,7 +158,11 @@ async function requestTokens(body) {
       Authorization: `Basic ${credentials}`,
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: new URLSearchParams(body),
+    body: new URLSearchParams({
+      ...body,
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+    }),
   });
 
   if (!tokenRes.ok) {
