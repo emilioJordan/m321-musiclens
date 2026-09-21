@@ -23,7 +23,7 @@
         <span class="wordmark">MusicLens</span>
       </header>
 
-      <section class="card">
+      <section class="card" id="login-card">
         <p class="eyebrow">Spotify Recap</p>
         <h1>Dein Sound, durch die Linse.</h1>
         <p class="lead">
@@ -41,9 +41,23 @@
           Mit Spotify anmelden
         </button>
 
-        <p class="hint" id="login-hint" hidden>
-          Login-Seite steht. Die Spotify-API kommt als nächster Schritt.
+        <p class="hint" id="login-hint" hidden></p>
+      </section>
+
+      <section class="card" id="connected-card" hidden>
+        <p class="eyebrow">Verbunden</p>
+        <div class="profile">
+          <img class="avatar" id="user-image" alt="" hidden />
+          <div class="avatar fallback" id="user-fallback" hidden></div>
+          <div>
+            <h1 id="user-name"></h1>
+            <p class="lead tight" id="user-email"></p>
+          </div>
+        </div>
+        <p class="lead">
+          Dein Spotify-Konto ist verbunden. Auswertungen kommen als Nächstes.
         </p>
+        <button type="button" class="ghost-btn" id="logout-btn">Abmelden</button>
       </section>
 
       <p class="meta">Modul 321 · Leander Heiniger & Emilio Jordan</p>

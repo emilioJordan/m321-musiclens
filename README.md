@@ -2,13 +2,23 @@
 
 Spotify-Auswertung im Stil von Wrapped. Modul 321, Team Leander Heiniger & Emilio Jordan.
 
-## Starten
+## Spotify-App
 
-Login-Seite im Browser öffnen:
+1. App erstellen unter https://developer.spotify.com/dashboard
+2. Redirect URI eintragen: `http://127.0.0.1:3000/auth/callback`
+3. Client ID und Client Secret in `.env` kopieren
+4. Im Dashboard unter **User Management** das eigene Spotify-Konto hinzufügen (Development Mode)
 
 ```bash
-cd frontend
-python -m http.server 5173
+cp .env.example .env
 ```
 
-Dann http://localhost:5173 aufrufen.
+## Starten
+
+```bash
+cd api-gateway
+npm install
+npm start
+```
+
+Dann http://127.0.0.1:3000 öffnen.
