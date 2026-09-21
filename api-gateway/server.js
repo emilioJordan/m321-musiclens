@@ -118,9 +118,66 @@ app.post("/auth/logout", (_req, res) => {
   res.json({ ok: true });
 });
 
-app.listen(PORT, () => {
-  console.log(`MusicLens läuft auf http://localhost:${PORT}`);
+app.get("/stats/top", async (req, res) => {
+  const accessToken = await getAccessToken(req, res);
+  if (!accessToken) {
+    res.status(401).json({ error: "not_authenticated" });
+    return;
+  }
+
+  const allowedRanges = new Set(["short_term", "medium_term", "long_term"]);
+  const timeRange = allowedRanges.has(req.query.range)
+    ? req.query.range
+    : "medium_term";
+
+  try {
+    const [artistsRes, tracksRes] = await Promise.all([
+      spotifyGet(
+        accessToken,
+        `/me/top/artists?time_range=${timeRange}&limit=10`,
+      ),
+      spotifyGet(
+        accessToken,
+        `/me/top/tracks?time_range=${timeRange}&limit=10`,
+      ),
+    ]);
+
+    res.json({
+      range: timeRange,
+      artists: artistsRes.items.map((artist) => ({
+        id: artist.id,
+        name: artist.name,
+        image: artist.images?.[0]?.url ?? null,
+      })),
+      tracks: tracksRes.items.map((track) => ({
+        id: track.id,
+        name: track.name,
+        artists: track.artists.map((artist) => artist.name).join(", "),
+        image: track.album?.images?.[0]?.url ?? null,
+      })),
+    });
+  } catch (err) {
+    console.error("Spotify top stats failed:", err);
+    res.status(502).json({ error: "spotify_stats_failed" });
+  }
 });
+
+app.listen(PORT, () => {
+  console.log(`MusicLens läuft auf http://172.0.0.1:${PORT}`);
+});
+
+async function spotifyGet(accessToken, path) {
+  const spotifyRes = await fetch(`https://api.spotify.com/v1${path}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!spotifyRes.ok) {
+    const details = await spotifyRes.text();
+    throw new Error(details);
+  }
+
+  return spotifyRes.json();
+}
 
 async function getAccessToken(req, res) {
   const accessToken = req.signedCookies.ml_access;

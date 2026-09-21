@@ -54,9 +54,24 @@
             <p class="lead tight" id="user-email"></p>
           </div>
         </div>
-        <p class="lead">
-          Dein Spotify-Konto ist verbunden. Auswertungen kommen als Nächstes.
-        </p>
+        <div class="range-row" role="group" aria-label="Zeitraum">
+          <button type="button" class="range-btn" data-range="short_term">4 Wochen</button>
+          <button type="button" class="range-btn is-active" data-range="medium_term">6 Monate</button>
+          <button type="button" class="range-btn" data-range="long_term">Immer</button>
+        </div>
+
+        <p class="hint" id="stats-hint" hidden></p>
+
+        <div class="stats-grid">
+          <section>
+            <h2>Top Artists</h2>
+            <ol class="rank-list" id="artist-list"></ol>
+          </section>
+          <section>
+            <h2>Top Songs</h2>
+            <ol class="rank-list" id="track-list"></ol>
+          </section>
+        </div>
         <button type="button" class="ghost-btn" id="logout-btn">Abmelden</button>
       </section>
 
