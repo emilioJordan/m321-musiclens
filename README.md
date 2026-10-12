@@ -2,18 +2,27 @@
 
 Spotify-Auswertung im Stil von Wrapped. Modul 321, Team Leander Heiniger & Emilio Jordan.
 
-## Spotify-App
+## Starten
 
-1. App erstellen unter https://developer.spotify.com/dashboard
-2. Redirect URI eintragen: `http://127.0.0.1:3000/auth/callback`
-3. Client ID und Client Secret in `.env` kopieren
-4. Im Dashboard unter **User Management** das eigene Spotify-Konto hinzufügen (Development Mode)
+1. Spotify-App anlegen, Redirect URI `http://127.0.0.1:3000/auth/callback`, Keys in `.env`.
+2. Infrastruktur:
 
 ```bash
 cp .env.example .env
+docker compose up -d
 ```
 
-## Starten
+3. Statistics Service:
+
+```bash
+cd services/statistics
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --port 8001
+```
+
+4. API Gateway:
 
 ```bash
 cd api-gateway

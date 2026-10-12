@@ -85,6 +85,7 @@ body {
 .card-wide {
   width: min(820px, 100%);
 }
+
 .eyebrow {
   margin: 0 0 10px;
   font-size: 12px;
@@ -176,7 +177,6 @@ h1 {
 .ghost-btn:hover {
   border-color: #f3d36a;
 }
-
 
 .range-row {
   display: flex;

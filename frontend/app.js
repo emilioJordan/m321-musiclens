@@ -72,14 +72,14 @@ async function loadStats() {
     return;
   }
 
-  artistList.innerHTML = "<li class=\"rank-item\">Lade Artists…</li>";
-  trackList.innerHTML = "<li class=\"rank-item\">Lade Songs…</li>";
+  artistList.innerHTML = '<li class="rank-item">Lade Artists…</li>';
+  trackList.innerHTML = '<li class="rank-item">Lade Songs…</li>';
   if (statsHint) {
     statsHint.hidden = true;
   }
 
   try {
-    const res = await fetch(/stats/top?range=${currentRange});
+    const res = await fetch(`/stats/top?range=${currentRange}`);
     if (res.status === 401) {
       window.location.href = "/";
       return;
@@ -94,7 +94,8 @@ async function loadStats() {
     artistList.innerHTML = "";
     trackList.innerHTML = "";
     if (statsHint) {
-      statsHint.textContent = "Auswertung konnte nicht geladen werden. Nochmal anmelden hilft oft.";
+      statsHint.textContent =
+        "Auswertung konnte nicht geladen werden. Nochmal anmelden hilft oft.";
       statsHint.hidden = false;
     }
   }
@@ -102,22 +103,22 @@ async function loadStats() {
 
 function renderList(list, items, subtitle) {
   if (!items.length) {
-    list.innerHTML = "<li class=\"rank-item\">Keine Daten für diesen Zeitraum.</li>";
+    list.innerHTML = '<li class="rank-item">Keine Daten für diesen Zeitraum.</li>';
     return;
   }
 
   list.innerHTML = items
     .map((item, index) => {
       const image = item.image
-        ? <img src="${item.image}" alt="">
-        : <div class="rank-fallback">${escapeHtml(item.name).charAt(0)}</div>;
+        ? `<img src="${item.image}" alt="">`
+        : `<div class="rank-fallback">${escapeHtml(item.name).charAt(0)}</div>`;
       const extra = subtitle?.(item);
       return `<li class="rank-item">
         <span class="rank-num">${index + 1}</span>
         ${image}
         <div>
           <strong>${escapeHtml(item.name)}</strong>
-          ${extra ? <span>${escapeHtml(extra)}</span> : ""}
+          ${extra ? `<span>${escapeHtml(extra)}</span>` : ""}
         </div>
       </li>`;
     })

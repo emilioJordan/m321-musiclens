@@ -15,6 +15,9 @@ const REDIRECT_URI = (
   process.env.SPOTIFY_REDIRECT_URI ?? "http://127.0.0.1:3000/auth/callback"
 ).trim();
 const SESSION_SECRET = (process.env.SESSION_SECRET ?? "musiclens-dev-secret").trim();
+const STATS_SERVICE_URL = (
+  process.env.STATS_SERVICE_URL ?? "http://127.0.0.1:8001"
+).trim();
 const SCOPES = [
   "user-read-private",
   "user-read-email",
@@ -131,53 +134,21 @@ app.get("/stats/top", async (req, res) => {
     : "medium_term";
 
   try {
-    const [artistsRes, tracksRes] = await Promise.all([
-      spotifyGet(
-        accessToken,
-        `/me/top/artists?time_range=${timeRange}&limit=10`,
-      ),
-      spotifyGet(
-        accessToken,
-        `/me/top/tracks?time_range=${timeRange}&limit=10`,
-      ),
-    ]);
-
-    res.json({
-      range: timeRange,
-      artists: artistsRes.items.map((artist) => ({
-        id: artist.id,
-        name: artist.name,
-        image: artist.images?.[0]?.url ?? null,
-      })),
-      tracks: tracksRes.items.map((track) => ({
-        id: track.id,
-        name: track.name,
-        artists: track.artists.map((artist) => artist.name).join(", "),
-        image: track.album?.images?.[0]?.url ?? null,
-      })),
-    });
+    const statsRes = await fetch(
+      `${STATS_SERVICE_URL}/top?range=${encodeURIComponent(timeRange)}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    const body = await statsRes.json().catch(() => ({ error: "spotify_stats_failed" }));
+    res.status(statsRes.status).json(body);
   } catch (err) {
-    console.error("Spotify top stats failed:", err);
-    res.status(502).json({ error: "spotify_stats_failed" });
+    console.error("Statistics service unreachable:", err);
+    res.status(502).json({ error: "stats_service_unreachable" });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`MusicLens läuft auf http://172.0.0.1:${PORT}`);
+  console.log(`MusicLens läuft auf http://127.0.0.1:${PORT}`);
 });
-
-async function spotifyGet(accessToken, path) {
-  const spotifyRes = await fetch(`https://api.spotify.com/v1${path}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  if (!spotifyRes.ok) {
-    const details = await spotifyRes.text();
-    throw new Error(details);
-  }
-
-  return spotifyRes.json();
-}
 
 async function getAccessToken(req, res) {
   const accessToken = req.signedCookies.ml_access;
