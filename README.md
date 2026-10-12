@@ -22,7 +22,17 @@ pip install -r requirements.txt
 uvicorn main:app --port 8001
 ```
 
-4. API Gateway:
+4. Recommendation Service:
+
+```bash
+cd services/recommendation
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --port 8002
+```
+
+5. API Gateway:
 
 ```bash
 cd api-gateway

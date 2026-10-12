@@ -1,9 +1,12 @@
+import cookie from "cookie";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import express from "express";
+import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { WebSocketServer } from "ws";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 dotenv.config({ path: join(rootDir, ".env") });
@@ -17,6 +20,9 @@ const REDIRECT_URI = (
 const SESSION_SECRET = (process.env.SESSION_SECRET ?? "musiclens-dev-secret").trim();
 const STATS_SERVICE_URL = (
   process.env.STATS_SERVICE_URL ?? "http://127.0.0.1:8001"
+).trim();
+const RECOMMENDATION_SERVICE_URL = (
+  process.env.RECOMMENDATION_SERVICE_URL ?? "http://127.0.0.1:8002"
 ).trim();
 const SCOPES = [
   "user-read-private",
@@ -146,9 +152,73 @@ app.get("/stats/top", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+const server = createServer(app);
+const sockets = new WebSocketServer({ server, path: "/ws" });
+
+sockets.on("connection", (socket, request) => {
+  socket.on("message", async (raw) => {
+    let message;
+    try {
+      message = JSON.parse(raw.toString());
+    } catch {
+      socket.send(JSON.stringify({ type: "error", error: "invalid_message" }));
+      return;
+    }
+
+    if (message.type !== "recommendations") {
+      return;
+    }
+
+    const accessToken = await tokenFromHeaders(request.headers.cookie);
+    if (!accessToken) {
+      socket.send(JSON.stringify({ type: "recommendations", error: "not_authenticated" }));
+      return;
+    }
+
+    const allowedRanges = new Set(["short_term", "medium_term", "long_term"]);
+    const timeRange = allowedRanges.has(message.range) ? message.range : "medium_term";
+
+    try {
+      const recRes = await fetch(
+        `${RECOMMENDATION_SERVICE_URL}/recommendations?range=${encodeURIComponent(timeRange)}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      const body = await recRes.json().catch(() => ({ error: "recommendations_failed" }));
+      if (!recRes.ok) {
+        socket.send(JSON.stringify({ type: "recommendations", error: body.error ?? "recommendations_failed" }));
+        return;
+      }
+      socket.send(JSON.stringify({ type: "recommendations", range: timeRange, tracks: body.tracks ?? [] }));
+    } catch (err) {
+      console.error("Recommendation service unreachable:", err);
+      socket.send(JSON.stringify({ type: "recommendations", error: "recommendation_service_unreachable" }));
+    }
+  });
+});
+
+server.listen(PORT, "127.0.0.1", () => {
   console.log(`MusicLens läuft auf http://127.0.0.1:${PORT}`);
 });
+
+async function tokenFromHeaders(cookieHeader) {
+  const parsed = cookie.parse(cookieHeader ?? "");
+  const unsigned = (value) => {
+    if (!value) {
+      return undefined;
+    }
+    const result = cookieParser.signedCookie(value, SESSION_SECRET);
+    return result === false ? undefined : result;
+  };
+  return getAccessToken(
+    {
+      signedCookies: {
+        ml_access: unsigned(parsed.ml_access),
+        ml_refresh: unsigned(parsed.ml_refresh),
+      },
+    },
+    { cookie() {}, clearCookie() {} },
+  );
+}
 
 async function getAccessToken(req, res) {
   const accessToken = req.signedCookies.ml_access;

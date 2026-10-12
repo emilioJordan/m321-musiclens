@@ -10,6 +10,7 @@ const userImage = document.getElementById("user-image");
 const userFallback = document.getElementById("user-fallback");
 const artistList = document.getElementById("artist-list");
 const trackList = document.getElementById("track-list");
+const recommendationList = document.getElementById("recommendation-list");
 
 const errorMessages = {
   config:
@@ -37,6 +38,7 @@ document.querySelectorAll(".range-btn").forEach((button) => {
       item.classList.toggle("is-active", item === button);
     });
     loadStats();
+    loadRecommendations();
   });
 });
 
@@ -62,6 +64,7 @@ async function loadSession() {
     }
     showConnected(await res.json());
     loadStats();
+    loadRecommendations();
   } catch {
     showHint("Der Server ist nicht erreichbar. api-gateway mit npm start starten.");
   }
@@ -99,6 +102,71 @@ async function loadStats() {
       statsHint.hidden = false;
     }
   }
+}
+
+let recSocket;
+
+function loadRecommendations() {
+  if (!recommendationList) {
+    return;
+  }
+
+  recommendationList.innerHTML = '<p class="rec-status">Suche neue Songs…</p>';
+  const socket = openRecSocket();
+  const send = () => {
+    socket.send(JSON.stringify({ type: "recommendations", range: currentRange }));
+  };
+
+  if (socket.readyState === WebSocket.OPEN) {
+    send();
+    return;
+  }
+  socket.addEventListener("open", send, { once: true });
+}
+
+function openRecSocket() {
+  if (
+    recSocket &&
+    (recSocket.readyState === WebSocket.OPEN || recSocket.readyState === WebSocket.CONNECTING)
+  ) {
+    return recSocket;
+  }
+
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+  const socket = new WebSocket(`${protocol}://${window.location.host}/ws`);
+  recSocket = socket;
+
+  socket.addEventListener("message", (event) => {
+    const message = JSON.parse(event.data);
+    if (message.type !== "recommendations" || !recommendationList) {
+      return;
+    }
+    if (message.error) {
+      recommendationList.innerHTML =
+        '<p class="rec-status">Empfehlungen konnten nicht geladen werden.</p>';
+      return;
+    }
+    renderList(
+      recommendationList,
+      message.tracks ?? [],
+      (item) => `Weil du ${item.because} hörst`,
+    );
+  });
+
+  socket.addEventListener("close", () => {
+    if (recSocket === socket) {
+      recSocket = null;
+    }
+  });
+
+  socket.addEventListener("error", () => {
+    if (recommendationList) {
+      recommendationList.innerHTML =
+        '<p class="rec-status">Empfehlungen konnten nicht geladen werden.</p>';
+    }
+  });
+
+  return socket;
 }
 
 function renderList(list, items, subtitle) {
