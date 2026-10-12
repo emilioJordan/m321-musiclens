@@ -152,6 +152,25 @@ app.get("/stats/top", async (req, res) => {
   }
 });
 
+app.get("/stats/recap", async (req, res) => {
+  const accessToken = await getAccessToken(req, res);
+  if (!accessToken) {
+    res.status(401).json({ error: "not_authenticated" });
+    return;
+  }
+
+  try {
+    const statsRes = await fetch(`${STATS_SERVICE_URL}/recap`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const body = await statsRes.json().catch(() => ({ error: "spotify_stats_failed" }));
+    res.status(statsRes.status).json(body);
+  } catch (err) {
+    console.error("Statistics service unreachable:", err);
+    res.status(502).json({ error: "stats_service_unreachable" });
+  }
+});
+
 const server = createServer(app);
 const sockets = new WebSocketServer({ server, path: "/ws" });
 

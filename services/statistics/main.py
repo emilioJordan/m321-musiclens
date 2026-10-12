@@ -62,6 +62,37 @@ def top_stats(
     return payload
 
 
+@app.get("/recap")
+def recap(authorization: str | None = Header(default=None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="missing_token")
+
+    token = authorization.removeprefix("Bearer ").strip()
+    try:
+        recent = fetch_top(token, "short_term")
+        overall = fetch_top(token, "long_term")
+    except httpx.HTTPStatusError as err:
+        status = 401 if err.response.status_code in {401, 403} else 502
+        raise HTTPException(status_code=status, detail="spotify_stats_failed") from err
+    except httpx.HTTPError as err:
+        raise HTTPException(status_code=502, detail="spotify_stats_failed") from err
+
+    fresh_artists, steady_artists = split_lists(recent["artists"], overall["artists"])
+    fresh_tracks, steady_tracks = split_lists(recent["tracks"], overall["tracks"])
+    return {
+        "userId": recent.get("userId"),
+        "artists": {"fresh": fresh_artists, "steady": steady_artists},
+        "tracks": {"fresh": fresh_tracks, "steady": steady_tracks},
+    }
+
+
+def split_lists(recent: list[dict], overall: list[dict]) -> tuple[list[dict], list[dict]]:
+    overall_ids = {item["id"] for item in overall}
+    fresh = [item for item in recent if item["id"] not in overall_ids]
+    steady = [item for item in recent if item["id"] in overall_ids]
+    return fresh, steady
+
+
 def fetch_top(token: str, time_range: str) -> dict:
     headers = {"Authorization": f"Bearer {token}"}
     with httpx.Client(timeout=20.0) as client:

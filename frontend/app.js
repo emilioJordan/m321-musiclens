@@ -11,6 +11,10 @@ const userFallback = document.getElementById("user-fallback");
 const artistList = document.getElementById("artist-list");
 const trackList = document.getElementById("track-list");
 const recommendationList = document.getElementById("recommendation-list");
+const freshArtists = document.getElementById("fresh-artists");
+const steadyArtists = document.getElementById("steady-artists");
+const freshTracks = document.getElementById("fresh-tracks");
+const steadyTracks = document.getElementById("steady-tracks");
 
 const errorMessages = {
   config:
@@ -64,6 +68,7 @@ async function loadSession() {
     }
     showConnected(await res.json());
     loadStats();
+    loadRecap();
     loadRecommendations();
   } catch {
     showHint("Der Server ist nicht erreichbar. api-gateway mit npm start starten.");
@@ -105,6 +110,35 @@ async function loadStats() {
 }
 
 let recSocket;
+
+async function loadRecap() {
+  if (!freshArtists || !steadyArtists || !freshTracks || !steadyTracks) {
+    return;
+  }
+
+  freshArtists.innerHTML = '<li class="rank-item">Lade Recap…</li>';
+  steadyArtists.innerHTML = "";
+  freshTracks.innerHTML = "";
+  steadyTracks.innerHTML = "";
+
+  try {
+    const res = await fetch("/stats/recap");
+    if (res.status === 401) {
+      window.location.href = "/";
+      return;
+    }
+    if (!res.ok) {
+      throw new Error("recap_failed");
+    }
+    const data = await res.json();
+    renderList(freshArtists, data.artists?.fresh ?? []);
+    renderList(steadyArtists, data.artists?.steady ?? []);
+    renderList(freshTracks, data.tracks?.fresh ?? [], (item) => item.artists);
+    renderList(steadyTracks, data.tracks?.steady ?? [], (item) => item.artists);
+  } catch {
+    freshArtists.innerHTML = '<p class="rec-status">Recap konnte nicht geladen werden.</p>';
+  }
+}
 
 function loadRecommendations() {
   if (!recommendationList) {
