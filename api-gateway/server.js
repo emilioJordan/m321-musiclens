@@ -2,8 +2,9 @@ import cookie from "cookie";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import express from "express";
+import amqplib from "amqplib";
 import { createServer } from "node:http";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
@@ -12,6 +13,7 @@ const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 dotenv.config({ path: join(rootDir, ".env") });
 
 const PORT = Number(process.env.PORT) || 3000;
+const HOST = process.env.HOST || "0.0.0.0";
 const CLIENT_ID = (process.env.SPOTIFY_CLIENT_ID ?? "").trim();
 const CLIENT_SECRET = (process.env.SPOTIFY_CLIENT_SECRET ?? "").trim();
 const REDIRECT_URI = (
@@ -24,12 +26,23 @@ const STATS_SERVICE_URL = (
 const RECOMMENDATION_SERVICE_URL = (
   process.env.RECOMMENDATION_SERVICE_URL ?? "http://127.0.0.1:8002"
 ).trim();
+const RABBITMQ_URL = (
+  process.env.RABBITMQ_URL ?? "amqp://musiclens:musiclens@127.0.0.1:5672/"
+).trim();
 const SCOPES = [
   "user-read-private",
   "user-read-email",
   "user-top-read",
   "user-read-recently-played",
+  "user-read-currently-playing",
 ].join(" ");
+
+const EVENTS = "musiclens.events";
+const STATS_JOBS = "musiclens.stats.jobs";
+const RECS_JOBS = "musiclens.recs.jobs";
+const RANGES = new Set(["short_term", "medium_term", "long_term"]);
+const STATS_KINDS = new Set(["dashboard", "compare", "history", "now", "ping-stats"]);
+const RECS_KINDS = new Set(["recommendations", "ping-recs"]);
 
 const cookieBase = {
   httpOnly: true,
@@ -38,9 +51,23 @@ const cookieBase = {
   path: "/",
 };
 
+const jobs = new Map();
+let channel = null;
+let brokerLoop = false;
+
 const app = express();
 app.use(cookieParser(SESSION_SECRET));
-app.use(express.static(join(rootDir, "frontend")));
+app.use(
+  express.static(join(rootDir, "frontend"), {
+    setHeaders(res) {
+      res.setHeader("Cache-Control", "no-cache");
+    },
+  }),
+);
+
+app.get("/health", (_req, res) => {
+  res.status(channel ? 200 : 503).json({ ok: Boolean(channel) });
+});
 
 app.get("/auth/login", (req, res) => {
   if (!CLIENT_ID || !CLIENT_SECRET) {
@@ -134,10 +161,7 @@ app.get("/stats/top", async (req, res) => {
     return;
   }
 
-  const allowedRanges = new Set(["short_term", "medium_term", "long_term"]);
-  const timeRange = allowedRanges.has(req.query.range)
-    ? req.query.range
-    : "medium_term";
+  const timeRange = RANGES.has(req.query.range) ? req.query.range : "medium_term";
 
   try {
     const statsRes = await fetch(
@@ -184,40 +208,127 @@ sockets.on("connection", (socket, request) => {
       return;
     }
 
-    if (message.type !== "recommendations") {
+    if (message.type !== "job") {
       return;
     }
 
-    const accessToken = await tokenFromHeaders(request.headers.cookie);
-    if (!accessToken) {
-      socket.send(JSON.stringify({ type: "recommendations", error: "not_authenticated" }));
+    const kind = message.kind;
+    const queue = queueFor(kind);
+    const jobId = validId(message.jobId) ? message.jobId : randomUUID();
+    if (!queue) {
+      socket.send(JSON.stringify({ type: "error", jobId, kind, error: "invalid_job" }));
       return;
     }
 
-    const allowedRanges = new Set(["short_term", "medium_term", "long_term"]);
-    const timeRange = allowedRanges.has(message.range) ? message.range : "medium_term";
+    const workerKind = kind.startsWith("ping-") ? "ping" : kind;
+    const range = RANGES.has(message.range) ? message.range : "medium_term";
+    const rangeB = RANGES.has(message.rangeB) ? message.rangeB : "long_term";
+    if (workerKind === "compare" && range === rangeB) {
+      socket.send(JSON.stringify({ type: "error", jobId, kind: workerKind, error: "same_range" }));
+      return;
+    }
 
-    try {
-      const recRes = await fetch(
-        `${RECOMMENDATION_SERVICE_URL}/recommendations?range=${encodeURIComponent(timeRange)}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      );
-      const body = await recRes.json().catch(() => ({ error: "recommendations_failed" }));
-      if (!recRes.ok) {
-        socket.send(JSON.stringify({ type: "recommendations", error: body.error ?? "recommendations_failed" }));
+    let token = "";
+    if (workerKind !== "ping") {
+      token = (await tokenFromHeaders(request.headers.cookie)) ?? "";
+      if (!token) {
+        socket.send(JSON.stringify({ type: "error", jobId, kind: workerKind, error: "not_authenticated" }));
         return;
       }
-      socket.send(JSON.stringify({ type: "recommendations", range: timeRange, tracks: body.tracks ?? [] }));
+    }
+
+    if (!channel) {
+      socket.send(JSON.stringify({ type: "error", jobId, kind: workerKind, error: "broker_unavailable" }));
+      return;
+    }
+
+    jobs.set(jobId, socket);
+    try {
+      channel.sendToQueue(
+        queue,
+        Buffer.from(JSON.stringify({ jobId, kind: workerKind, range, rangeB, token })),
+        { persistent: true, contentType: "application/json" },
+      );
     } catch (err) {
-      console.error("Recommendation service unreachable:", err);
-      socket.send(JSON.stringify({ type: "recommendations", error: "recommendation_service_unreachable" }));
+      console.error("Auftrag nicht gesendet:", err);
+      jobs.delete(jobId);
+      socket.send(JSON.stringify({ type: "error", jobId, kind: workerKind, error: "broker_unavailable" }));
+    }
+  });
+
+  socket.on("close", () => {
+    for (const [jobId, open] of jobs) {
+      if (open === socket) {
+        jobs.delete(jobId);
+      }
     }
   });
 });
 
-server.listen(PORT, "127.0.0.1", () => {
+await setupBroker();
+server.listen(PORT, HOST, () => {
   console.log(`MusicLens läuft auf http://127.0.0.1:${PORT}`);
 });
+
+function queueFor(kind) {
+  if (STATS_KINDS.has(kind)) {
+    return STATS_JOBS;
+  }
+  if (RECS_KINDS.has(kind)) {
+    return RECS_JOBS;
+  }
+  return null;
+}
+
+function validId(value) {
+  return typeof value === "string" && /^[0-9a-f-]{16,40}$/i.test(value);
+}
+
+async function setupBroker() {
+  if (brokerLoop) {
+    return;
+  }
+  brokerLoop = true;
+  while (!channel) {
+    try {
+      const connection = await amqplib.connect(RABBITMQ_URL);
+      connection.on("error", (err) => console.error("RabbitMQ", err.message));
+      connection.on("close", () => {
+        console.log("RabbitMQ Verbindung zu");
+        channel = null;
+        brokerLoop = false;
+        setTimeout(setupBroker, 2000);
+      });
+      const next = await connection.createChannel();
+      await next.assertExchange(EVENTS, "topic", { durable: true });
+      await next.assertQueue(STATS_JOBS, { durable: true });
+      await next.assertQueue(RECS_JOBS, { durable: true });
+      await next.assertQueue("musiclens.stats.updated", { durable: true });
+      const events = await next.assertQueue("musiclens.gateway.events", { durable: true });
+      await next.bindQueue(events.queue, EVENTS, "job.*");
+      await next.consume(events.queue, (msg) => {
+        if (!msg) {
+          return;
+        }
+        const event = JSON.parse(msg.content.toString());
+        const socket = jobs.get(event.jobId);
+        if (socket && socket.readyState === socket.OPEN) {
+          socket.send(JSON.stringify(event));
+        }
+        if (event.type === "result" || event.type === "error") {
+          jobs.delete(event.jobId);
+        }
+        next.ack(msg);
+      });
+      channel = next;
+      console.log("RabbitMQ verbunden");
+    } catch (err) {
+      console.error("RabbitMQ noch nicht bereit:", err.message);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+  }
+  brokerLoop = false;
+}
 
 async function tokenFromHeaders(cookieHeader) {
   const parsed = cookie.parse(cookieHeader ?? "");
@@ -265,9 +376,7 @@ async function getAccessToken(req, res) {
 }
 
 async function requestTokens(body) {
-  const credentials = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString(
-    "base64",
-  );
+  const credentials = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString("base64");
 
   const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
     method: "POST",

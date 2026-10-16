@@ -11,14 +11,107 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-musiclens} -d ${POSTGRES_DB:-musiclens}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: musiclens-rabbitmq
     restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-musiclens}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-musiclens}
     ports:
       - "5672:5672"
       - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  statistics:
+    build: ./services/statistics
+    container_name: musiclens-statistics
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-musiclens}:${POSTGRES_PASSWORD:-musiclens}@postgres:5432/${POSTGRES_DB:-musiclens}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-musiclens}:${RABBITMQ_PASSWORD:-musiclens}@rabbitmq:5672/
+      EXTRA_CA_FILE: /certs/extra-ca.pem
+    volumes:
+      - ./certs:/certs:ro
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  recommendation:
+    build: ./services/recommendation
+    container_name: musiclens-recommendation
+    restart: unless-stopped
+    environment:
+      STATS_SERVICE_URL: http://statistics:8001
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-musiclens}:${RABBITMQ_PASSWORD:-musiclens}@rabbitmq:5672/
+      EXTRA_CA_FILE: /certs/extra-ca.pem
+    volumes:
+      - ./certs:/certs:ro
+    ports:
+      - "8002:8002"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      statistics:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  gateway:
+    build: .
+    container_name: musiclens-gateway
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      STATS_SERVICE_URL: http://statistics:8001
+      RECOMMENDATION_SERVICE_URL: http://recommendation:8002
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-musiclens}:${RABBITMQ_PASSWORD:-musiclens}@rabbitmq:5672/
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
+      SPOTIFY_REDIRECT_URI: ${SPOTIFY_REDIRECT_URI:-http://127.0.0.1:3000/auth/callback}
+      SESSION_SECRET: ${SESSION_SECRET:-musiclens-dev-secret}
+    volumes:
+      - ./certs:/certs:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      statistics:
+        condition: service_healthy
+      recommendation:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
 
 volumes:
   postgres_data:

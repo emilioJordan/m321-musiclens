@@ -1,0 +1,7 @@
+**/.git
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.env
+m321-ina23c-gruppe01-main

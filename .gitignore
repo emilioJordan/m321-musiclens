@@ -1,6 +1,7 @@
 # Secrets
 .env
 *.pem
+certs/*.pem
 
 # Node
 node_modules/

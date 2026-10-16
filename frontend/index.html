@@ -8,31 +8,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Syne:wght@700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Syne:wght@700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="screen">
-      <div class="glow glow-left"></div>
-      <div class="glow glow-right"></div>
-
-      <header class="brand">
-        <span class="lens" aria-hidden="true"></span>
-        <span class="wordmark">MusicLens</span>
-      </header>
-
-      <section class="card" id="login-card">
-        <p class="eyebrow">Spotify Recap</p>
-        <h1>Dein Sound, durch die Linse.</h1>
+    <main class="login" id="login-view">
+      <div class="login-copy">
+        <p class="mark"><span class="lens" aria-hidden="true"></span> MusicLens</p>
+        <h1>Dein Hören, scharf gestellt.</h1>
         <p class="lead">
-          Meistgehörte Songs, Artists und später eigene Dashboards – wie Wrapped,
-          nur für dich gebaut.
+          Top Artists, der Unterschied zwischen zwei Zeiträumen und Songs, die noch
+          nicht in deinen Top 10 sind.
         </p>
-
         <button type="button" class="spotify-btn" id="login-btn">
-          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
             <path
               fill="currentColor"
               d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.52 17.34c-.24.36-.66.48-1.02.24-2.82-1.74-6.36-2.1-10.56-1.14-.42.12-.78-.18-.9-.54-.12-.42.18-.78.54-.9 4.56-1.02 8.52-.6 11.64 1.32.42.18.48.66.3 1.02zm1.44-3.24c-.3.42-.84.6-1.26.3-3.24-1.98-8.16-2.58-11.94-1.38-.48.12-.96-.18-1.08-.66-.12-.48.18-.96.66-1.08 4.38-1.32 9.78-.66 13.5 1.62.42.24.54.84.12 1.2zm.12-3.36C14.82 8.4 8.4 8.16 4.92 9.24c-.54.18-1.14-.18-1.32-.72-.18-.54.18-1.14.72-1.32 4.02-1.2 11.04-.9 15.42 1.62.54.3.72.96.42 1.44-.3.48-.96.66-1.5.36z"
@@ -40,73 +31,155 @@
           </svg>
           Mit Spotify anmelden
         </button>
-
         <p class="hint" id="login-hint" hidden></p>
-      </section>
-
-      <section class="card card-wide" id="connected-card" hidden>
-        <p class="eyebrow">Verbunden</p>
-        <div class="profile">
-          <img class="avatar" id="user-image" alt="" hidden />
-          <div class="avatar fallback" id="user-fallback" hidden></div>
-          <div>
-            <h1 id="user-name"></h1>
-            <p class="lead tight" id="user-email"></p>
-          </div>
-        </div>
-        <div class="range-row" role="group" aria-label="Zeitraum">
-          <button type="button" class="range-btn" data-range="short_term">4 Wochen</button>
-          <button type="button" class="range-btn is-active" data-range="medium_term">6 Monate</button>
-          <button type="button" class="range-btn" data-range="long_term">Immer</button>
-        </div>
-
-        <p class="hint" id="stats-hint" hidden></p>
-
-        <div class="stats-grid">
-          <section>
-            <h2>Top Artists</h2>
-            <ol class="rank-list" id="artist-list"></ol>
-          </section>
-          <section>
-            <h2>Top Songs</h2>
-            <ol class="rank-list" id="track-list"></ol>
-          </section>
-        </div>
-
-        <section class="recommendations" id="recap">
-          <h2>Recap</h2>
-          <p class="lead tight rec-lead">Neu in den letzten 4 Wochen, verglichen mit deinem Gesamtzeitraum.</p>
-          <div class="stats-grid">
-            <section>
-              <h3>Neue Artists</h3>
-              <ol class="rank-list" id="fresh-artists"></ol>
-            </section>
-            <section>
-              <h3>Artists, die bleiben</h3>
-              <ol class="rank-list" id="steady-artists"></ol>
-            </section>
-            <section>
-              <h3>Neue Songs</h3>
-              <ol class="rank-list" id="fresh-tracks"></ol>
-            </section>
-            <section>
-              <h3>Songs, die bleiben</h3>
-              <ol class="rank-list" id="steady-tracks"></ol>
-            </section>
-          </div>
-        </section>
-
-        <section class="recommendations">
-          <h2>Empfehlungen</h2>
-          <p class="lead tight rec-lead">Songs deiner Top Artists, die noch nicht in deinen Top 10 sind.</p>
-          <ol class="rank-list" id="recommendation-list"></ol>
-        </section>
-
-        <button type="button" class="ghost-btn" id="logout-btn">Abmelden</button>
-      </section>
-
-      <p class="meta">Modul 321 · Leander Heiniger & Emilio Jordan</p>
+      </div>
     </main>
+
+    <div class="shell" id="app-shell" hidden>
+      <aside class="side">
+        <p class="mark"><span class="lens" aria-hidden="true"></span> MusicLens</p>
+        <nav class="nav" aria-label="Bereiche">
+          <button type="button" data-view="overview" class="is-active" aria-current="page">Übersicht</button>
+          <button type="button" data-view="compare">Vergleich</button>
+          <button type="button" data-view="recommendations">Empfehlungen</button>
+          <button type="button" data-view="history">Verlauf</button>
+          <button type="button" data-view="live">Jetzt</button>
+        </nav>
+        <button type="button" class="text-btn" id="logout-btn">Abmelden</button>
+      </aside>
+
+      <section class="workspace">
+        <header class="top">
+          <div>
+            <p class="eyebrow" id="user-line"></p>
+            <h1 id="view-title">Übersicht</h1>
+          </div>
+          <div class="top-actions">
+            <div class="range-row" id="range-row" role="group" aria-label="Zeitraum">
+              <button type="button" class="range-btn" data-range="short_term">4 Wochen</button>
+              <button type="button" class="range-btn is-active" data-range="medium_term" aria-pressed="true">6 Monate</button>
+              <button type="button" class="range-btn" data-range="long_term">Immer</button>
+            </div>
+            <button type="button" class="text-btn" id="refresh-btn">Neu laden</button>
+          </div>
+        </header>
+
+        <div class="progress" id="progress" hidden>
+          <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-bar">
+            <span id="progress-fill"></span>
+          </div>
+          <p id="progress-label"></p>
+        </div>
+
+        <div class="view" data-panel="overview">
+          <p class="status" id="overview-status" hidden></p>
+          <div class="metrics">
+            <article>
+              <p>Hörzeit zuletzt</p>
+              <strong id="listen-minutes">–</strong>
+              <span>Minuten aus den letzten Titeln</span>
+            </article>
+            <article>
+              <p>Artists</p>
+              <strong id="artist-count">–</strong>
+              <span>in diesem Zeitraum</span>
+            </article>
+            <article>
+              <p>Neu dazu</p>
+              <strong id="fresh-count">–</strong>
+              <span>gegenüber dem Gesamtzeitraum</span>
+            </article>
+          </div>
+          <div class="split">
+            <section class="panel">
+              <h2>Genres</h2>
+              <div id="genre-chart"></div>
+            </section>
+            <section class="panel">
+              <h2>Tageszeit</h2>
+              <div class="hours" id="hour-chart"></div>
+              <p class="fine">Letzte gehörte Titel, Stunde in Zürich.</p>
+            </section>
+          </div>
+          <section class="panel">
+            <h2>Beliebtheit der Top Songs</h2>
+            <div id="popularity-chart"></div>
+          </section>
+          <div class="split">
+            <section class="panel">
+              <h2>Top Artists</h2>
+              <ol class="rank-list" id="artist-list"></ol>
+            </section>
+            <section class="panel">
+              <h2>Top Songs</h2>
+              <ol class="rank-list" id="track-list"></ol>
+            </section>
+          </div>
+          <section class="panel">
+            <h2>Neu gegenüber Gesamt</h2>
+            <ol class="rank-list" id="fresh-list"></ol>
+          </section>
+        </div>
+
+        <div class="view" data-panel="compare" hidden>
+          <p class="status" id="compare-status" hidden></p>
+          <form class="compare-form" id="compare-form">
+            <label>Erster Zeitraum
+              <select id="range-a">
+                <option value="short_term" selected>4 Wochen</option>
+                <option value="medium_term">6 Monate</option>
+                <option value="long_term">Gesamt</option>
+              </select>
+            </label>
+            <label>Zweiter Zeitraum
+              <select id="range-b">
+                <option value="short_term">4 Wochen</option>
+                <option value="medium_term">6 Monate</option>
+                <option value="long_term" selected>Gesamt</option>
+              </select>
+            </label>
+            <button type="submit" class="solid-btn">Vergleichen</button>
+          </form>
+          <h2 class="group-title">Artists</h2>
+          <div class="split three" id="compare-artists"></div>
+          <h2 class="group-title">Songs</h2>
+          <div class="split three" id="compare-tracks"></div>
+        </div>
+
+        <div class="view" data-panel="recommendations" hidden>
+          <p class="status" id="recommendations-status" hidden></p>
+          <p class="fine">Songs deiner Top Artists, die noch nicht in den Top 10 dieses Zeitraums sind.</p>
+          <div class="split">
+            <section class="panel">
+              <h2>Songs</h2>
+              <ol class="rank-list" id="recommendation-list"></ol>
+            </section>
+            <section class="panel">
+              <h2>Weitere Artists</h2>
+              <ol class="rank-list" id="suggestion-artists"></ol>
+            </section>
+          </div>
+        </div>
+
+        <div class="view" data-panel="history" hidden>
+          <p class="status" id="history-status" hidden></p>
+          <div class="history" id="history-list"></div>
+        </div>
+
+        <div class="view" data-panel="live" hidden>
+          <p class="status" id="live-status" hidden></p>
+          <article class="now-card" id="now-card"></article>
+          <section class="panel">
+            <h2>Andere auf MusicLens</h2>
+            <ol class="rank-list" id="others-list"></ol>
+          </section>
+          <section class="panel">
+            <h2>Zuletzt gehört</h2>
+            <ol class="rank-list" id="recent-list"></ol>
+          </section>
+        </div>
+      </section>
+    </div>
     <script src="./app.js"></script>
   </body>
 </html>
