@@ -6,35 +6,15 @@ Ein Befehl startet das ganze System: Postgres, RabbitMQ, Statistics Service, Rec
 
 ## Start
 
-Im Projektordner (dort liegt `docker-compose.yml`):
-
-```bash
-copy .env.example .env
-```
-
-Unter Linux oder macOS: `cp .env.example .env`.
-
-In `.env` die Spotify Client ID und das Secret eintragen. Im Spotify Dashboard muss die Redirect URI exakt `http://127.0.0.1:3000/auth/callback` sein.
-
-Dann:
-
-```bash
-podman compose up -d
-```
-
-Dasselbe Compose-File startet mit Docker:
+Im Projektordner:
 
 ```bash
 docker compose up -d
 ```
 
-Danach http://127.0.0.1:3000 öffnen.
+Danach http://127.0.0.1:3000 öffnen. Spotify Client ID und Secret stehen in `.env`, die Redirect URI im Dashboard ist `http://127.0.0.1:3000/auth/callback`. Die RabbitMQ-Oberfläche ist http://127.0.0.1:15672 mit Benutzer `musiclens` und Passwort `musiclens`.
 
-RabbitMQ-Oberfläche: http://127.0.0.1:15672 (Benutzer `musiclens`, Passwort `musiclens`).
-
-Nach einer Änderung an den Spotify-Scopes einmal abmelden und neu anmelden.
-
-Hinter einem TLS-Proxy (bei uns das Roche-Netz) legt man das Root-Zertifikat als `certs/extra-ca.pem` ab und startet die Container neu. Ohne diese Datei starten die Container normal; Spotify funktioniert dann in Netzen ohne Proxy.
+Hinter einem TLS-Proxy liegt das Root-Zertifikat als `certs/extra-ca.pem`. Ohne diese Datei starten die Container normal.
 
 ## Nachrichten
 
@@ -46,8 +26,7 @@ Gespeicherte Top-Listen, Verlauf und der Live-Status liegen in Postgres.
 
 Die Grundfunktionen bleiben: Spotify-Login, Top-Tracks und Top-Artists, zuletzt gehörte Songs, Vergleich zweier Zeiträume, Statistiken, Empfehlungen, Speicherung, Berechnung über RabbitMQ und Live-Fortschritt per WebSocket.
 
-- Die Oberfläche ist HTML, CSS und JavaScript im Gateway, nicht React und Vite. So kommt die Seite mit dem einen Compose-Start mit, ohne zweiten Dev-Server. Auf dem Entwicklungsrechner lief Vite 8 mit Node 20.16 nicht.
-- Gestartet wird mit Podman. `docker compose up -d` verwendet dieselbe Datei.
+- Die Oberfläche ist HTML, CSS und JavaScript im Gateway, nicht React und Vite. So kommt die Seite mit `docker compose up -d` mit, ohne zweiten Dev-Server. Auf dem Entwicklungsrechner lief Vite 8 mit Node 20.16 nicht.
 - Zeiträume sind die drei Spotify-Ranges: 4 Wochen, 6 Monate, Gesamt. Die Top-API kennt kein freies Datum.
 - „Andere auf MusicLens“ zeigt, was andere angemeldete Nutzer gerade hören. Spotify hat keine öffentliche Freundes-API.
 - Die Python-Services sprechen AMQP mit pika. Das Protokoll ist dasselbe wie bei aio-pika.
